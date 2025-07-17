@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation de Point sur une Sphère</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* Cache les barres de défilement */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: sans-serif;
+            color: #333;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            display: block; /* Supprime l'espace sous le canvas */
+            /* Ajout de dimensions explicites au canevas */
+            width: 80vw; /* 80% de la largeur de la fenêtre */
+            height: 60vh; /* 60% de la hauteur de la fenêtre */
+            max-width: 800px; /* Largeur maximale */
+            max-height: 600px; /* Hauteur maximale */
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            background-color: #e0e0e0; /* Fond du canvas */
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        #controls button {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #3498db;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        #controls button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        #controls button:active {
+            background-color: #1a5276;
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        #coords-display {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            font-family: 'Inter', monospace;
+            font-size: 1.1em;
+            color: #444;
+            text-align: center;
+            z-index: 10;
+        }
+
+        #coords-display span {
+            font-weight: bold;
+            color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simulation de Point sur une Sphère</h1>
+
+    <div id="controls">
+        <button id="resetCamera">Réinitialiser la caméra</button>
+        <button id="randomPoint">Placer un point aléatoire</button>
+    </div>
+
+    <div id="coords-display">
+        Coordonnées du Point (X, Y, Z) : <span id="coords1">(0.00, 0.00, 0.00)</span>
+    </div>
+
+    <!-- Le canvas où Three.js va rendre la scène 3D -->
+    <canvas id="sphereCanvas"></canvas>
+
+    <!-- Importation de Three.js (version non-module qui expose THREE globalement) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.137.0/three.min.js"></script>
+    <!-- Importation de OrbitControls (en tant que module) -->
+    <script type="module">
+        console.log("Script principal démarré. Tentative de vérification de THREE...");
+
+        // Vérifier si THREE est disponible globalement après le chargement du script précédent
+        if (typeof THREE === 'undefined') {
+            console.error("ERREUR CRUCIALE: L'objet THREE n'est PAS disponible globalement. Le chargement de three.min.js a échoué. Vérifiez le chemin du script ou votre connexion.");
+            const errorDiv = document.createElement('div');
+            errorDiv.style.color = 'red';
+            errorDiv.style.fontWeight = 'bold';
+            errorDiv.textContent = "Erreur: Impossible de charger la bibliothèque 3D (Three.js). Veuillez vérifier votre connexion internet ou les paramètres de votre navigateur (ex: bloqueurs de publicité).";
+            document.body.insertBefore(errorDiv, document.getElementById('sphereCanvas'));
+            // Arrêter l'exécution du script si Three.js n'est pas chargé
+            throw new Error("Three.js non chargé.");
+        } else {
+            console.log("Objet THREE est disponible globalement. Version:", THREE.REVISION);
+        }
+
+        // Importation de OrbitControls (en tant que module)
+        import { OrbitControls } from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.137.0/examples/jsm/controls/OrbitControls.min.js';
+        console.log("Module OrbitControls importé.");
+
+        // --- Vérification de la compatibilité WebGL ---
+        function checkWebGLAvailability() {
+            if (THREE.WEBGL && THREE.WEBGL.isWebGLAvailable() === false) {
+                const warning = THREE.WEBGL.getWebGLErrorMessage();
+                document.body.appendChild(warning);
+                console.error("WebGL n'est pas disponible. Impossible de rendre la scène 3D.");
+                return false;
+            }
+            console.log("WebGL est disponible.");
+            return true;
+        }
+
+        // --- Configuration de la scène Three.js ---
+        let renderer, scene, camera, controls;
+        let mainSphere, pointMesh;
+        const sphereRadius = 1;
+
+        function init() {
+            console.log("Appel de la fonction init()...");
+            if (!checkWebGLAvailability()) {
+                console.error("Initialisation annulée car WebGL n'est pas disponible.");
+                return;
+            }
+
+            const canvas = document.getElementById('sphereCanvas');
+            console.log(`Dimensions du canevas (clientWidth, clientHeight): ${canvas.clientWidth}, ${canvas.clientHeight}`);
+            if (canvas.clientWidth === 0 || canvas.clientHeight === 0) {
+                console.warn("Le canevas a des dimensions de 0. Assurez-vous que le CSS lui donne une taille. Tentative de définir une taille par défaut.");
+                canvas.style.width = '800px';
+                canvas.style.height = '600px';
+                console.log(`Nouvelles dimensions du canevas: ${canvas.clientWidth}, ${canvas.clientHeight}`);
+            }
+
+            try {
+                renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+                console.log("Renderer Three.js créé avec succès.");
+                renderer.setPixelRatio(window.devicePixelRatio);
+            } catch (e) {
+                console.error("Erreur lors de la création du WebGLRenderer:", e);
+                alert("Impossible de créer le moteur de rendu 3D. Votre navigateur supporte-t-il WebGL ?");
+                return;
+            }
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+            controls = new OrbitControls(camera, renderer.domElement);
+
+            // Position initiale de la caméra
+            camera.position.set(0, 0, 3);
+            controls.update();
+            console.log("Caméra et contrôles initialisés.");
+
+            // --- Création de la sphère principale ---
+            const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
+            const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x3498db, transparent: true, opacity: 0.8 });
+            mainSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            scene.add(mainSphere);
+            console.log("Sphère principale ajoutée à la scène.");
+
+            // --- Création du point ---
+            const pointGeometry = new THREE.SphereGeometry(0.08, 16, 16); // Taille du point augmentée
+            const pointMaterial = new THREE.MeshBasicMaterial({ color: 0xe74c3c }); // Rouge pour le point
+            pointMesh = new THREE.Mesh(pointGeometry, pointMaterial);
+            pointMesh.visible = false; // Initialement caché, sera rendu visible par updatePointAndDisplay
+            scene.add(pointMesh);
+            console.log("Point ajouté à la scène.");
+
+            // --- Ajout d'un helper d'axes pour le débogage ---
+            const axesHelper = new THREE.AxesHelper(2);
+            scene.add(axesHelper);
+            console.log("AxesHelper ajouté à la scène.");
+
+            // --- Lumières ---
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            directionalLight.position.set(1, 1, 1).normalize();
+            scene.add(directionalLight);
+            console.log("Lumières ajoutées.");
+
+            // --- Variables pour l'affichage des coordonnées ---
+            const coordsDisplay = document.getElementById('coords1');
+
+            // --- Fonctions de logique ---
+
+            /**
+             * Met à jour la position du point sur la sphère et l'affichage des coordonnées.
+             * @param {THREE.Vector3} normalizedPoint - Le vecteur normalisé du point sur la sphère.
+             */
+            function updatePointAndDisplay(normalizedPoint) {
+                pointMesh.visible = true;
+                pointMesh.position.copy(normalizedPoint).multiplyScalar(sphereRadius);
+                coordsDisplay.textContent = `(${normalizedPoint.x.toFixed(2)}, ${normalizedPoint.y.toFixed(2)}, ${normalizedPoint.z.toFixed(2)})`;
+                console.log("Point mis à jour et affiché à:", normalizedPoint.x.toFixed(2), normalizedPoint.y.toFixed(2), normalizedPoint.z.toFixed(2));
+            }
+
+            // --- Interaction avec la souris (clic sur le canvas) ---
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            canvas.addEventListener('click', (event) => {
+                const rect = canvas.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects([mainSphere]);
+
+                if (intersects.length > 0) {
+                    const intersectionPoint = intersects[0].point;
+                    const normalizedPoint = new THREE.Vector3().copy(intersectionPoint).normalize();
+                    updatePointAndDisplay(normalizedPoint);
+                } else {
+                    console.log("Clic sur le canevas, mais aucune intersection avec la sphère.");
+                }
+            });
+
+            // --- Boutons de contrôle ---
+            document.getElementById('resetCamera').addEventListener('click', () => {
+                controls.reset();
+                camera.position.set(0, 0, 3);
+                controls.update();
+                console.log("Caméra réinitialisée.");
+            });
+
+            document.getElementById('randomPoint').addEventListener('click', () => {
+                const phi = Math.random() * Math.PI * 2;
+                const theta = Math.random() * Math.PI;
+                const x = Math.sin(theta) * Math.cos(phi);
+                const y = Math.sin(theta) * Math.sin(phi);
+                const z = Math.cos(theta);
+                const randomNormalizedPoint = new THREE.Vector3(x, y, z);
+                updatePointAndDisplay(randomNormalizedPoint);
+                console.log("Point aléatoire placé.");
+            });
+
+            // --- Boucle d'animation ---
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+
+            // --- Gestion du redimensionnement de la fenêtre ---
+            window.addEventListener('resize', resizeRendererToDisplaySize);
+
+            // Démarrer l'animation
+            animate();
+            console.log("Animation démarrée.");
+
+            // Placer un point aléatoire au démarrage pour qu'il soit visible
+            document.getElementById('randomPoint').click();
+        }
+
+        // Appel initial pour s'assurer que le renderer est bien dimensionné et démarrer l'animation
+        window.onload = function() {
+            console.log("window.onload déclenché. Tentative d'initialisation de la scène.");
+            init();
+            resizeRendererToDisplaySize();
+        };
+    </script>
+</body>
+</html>
