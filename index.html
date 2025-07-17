@@ -105,23 +105,22 @@
     <!-- Le canvas où Three.js va rendre la scène 3D -->
     <canvas id="sphereCanvas"></canvas>
 
-    <!-- Importation de Three.js (version non-module qui expose THREE globalement) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.137.0/three.min.js"></script>
-    <!-- Importation de OrbitControls (version non-module qui expose OrbitControls globalement) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.137.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Importation de Three.js (maintenant depuis le dossier local) -->
+    <script src="./three.min.js"></script>
+    <!-- Importation de OrbitControls (maintenant depuis le dossier local) -->
+    <script src="./OrbitControls.js"></script>
 
     <script>
         console.log("Script principal démarré. Tentative de vérification de THREE...");
 
         // Vérifier si THREE est disponible globalement après le chargement du script précédent
         if (typeof THREE === 'undefined') {
-            console.error("ERREUR CRUCIALE: L'objet THREE n'est PAS disponible globalement. Le chargement de three.min.js a échoué. Vérifiez le chemin du script ou votre connexion.");
+            console.error("ERREUR CRUCIALE: L'objet THREE n'est PAS disponible globalement. Le chargement de three.min.js a échoué. Vérifiez que 'three.min.js' est bien dans le même dossier que 'index.html'.");
             const errorDiv = document.createElement('div');
             errorDiv.style.color = 'red';
             errorDiv.style.fontWeight = 'bold';
-            errorDiv.textContent = "Erreur: Impossible de charger la bibliothèque 3D (Three.js). Veuillez vérifier votre connexion internet ou les paramètres de votre navigateur (ex: bloqueurs de publicité).";
+            errorDiv.textContent = "Erreur: Impossible de charger la bibliothèque 3D (Three.js). Assurez-vous que 'three.min.js' est dans le même dossier.";
             document.body.insertBefore(errorDiv, document.getElementById('sphereCanvas'));
-            // Arrêter l'exécution du script si Three.js n'est pas chargé
             throw new Error("Three.js non chargé.");
         } else {
             console.log("Objet THREE est disponible globalement. Version:", THREE.REVISION);
@@ -129,11 +128,11 @@
 
         // Vérifier si OrbitControls est disponible globalement
         if (typeof OrbitControls === 'undefined') {
-            console.error("ERREUR CRUCIALE: L'objet OrbitControls n'est PAS disponible globalement. Le chargement de OrbitControls.js a échoué. Vérifiez le chemin du script ou votre connexion.");
+            console.error("ERREUR CRUCIALE: L'objet OrbitControls n'est PAS disponible globalement. Le chargement de OrbitControls.js a échoué. Vérifiez que 'OrbitControls.js' est bien dans le même dossier que 'index.html'.");
             const errorDiv = document.createElement('div');
             errorDiv.style.color = 'red';
             errorDiv.style.fontWeight = 'bold';
-            errorDiv.textContent = "Erreur: Impossible de charger les contrôles de caméra (OrbitControls).";
+            errorDiv.textContent = "Erreur: Impossible de charger les contrôles de caméra (OrbitControls). Assurez-vous que 'OrbitControls.js' est dans le même dossier.";
             document.body.insertBefore(errorDiv, document.getElementById('sphereCanvas'));
             throw new Error("OrbitControls non chargé.");
         } else {
