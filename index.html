@@ -126,20 +126,6 @@
             console.log("Objet THREE est disponible globalement. Version:", THREE.REVISION);
         }
 
-        // Vérifier si OrbitControls est disponible globalement
-        if (typeof OrbitControls === 'undefined') {
-            console.error("ERREUR CRUCIALE: L'objet OrbitControls n'est PAS disponible globalement. Le chargement de OrbitControls.js a échoué. Vérifiez que 'OrbitControls.js' est bien dans le même dossier que 'index.html'.");
-            const errorDiv = document.createElement('div');
-            errorDiv.style.color = 'red';
-            errorDiv.style.fontWeight = 'bold';
-            errorDiv.textContent = "Erreur: Impossible de charger les contrôles de caméra (OrbitControls). Assurez-vous que 'OrbitControls.js' est dans le même dossier.";
-            document.body.insertBefore(errorDiv, document.getElementById('sphereCanvas'));
-            throw new Error("OrbitControls non chargé.");
-        } else {
-            console.log("Objet OrbitControls est disponible globalement.");
-        }
-
-
         // --- Vérification de la compatibilité WebGL ---
         function checkWebGLAvailability() {
             if (THREE.WEBGL && THREE.WEBGL.isWebGLAvailable() === false) {
@@ -185,12 +171,22 @@
 
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-            controls = new OrbitControls(camera, renderer.domElement); // OrbitControls est maintenant globalement disponible
+
+            // Vérification et initialisation de OrbitControls
+            if (typeof OrbitControls === 'undefined') {
+                console.error("ERREUR: OrbitControls n'est PAS disponible. Le contrôle de la caméra par la souris ne fonctionnera pas.");
+                // Optionnel: afficher un message à l'utilisateur ou désactiver les fonctionnalités liées aux contrôles
+            } else {
+                controls = new OrbitControls(camera, renderer.domElement); // OrbitControls est maintenant globalement disponible
+                console.log("Objet OrbitControls est disponible globalement et initialisé.");
+            }
 
             // Position initiale de la caméra
             camera.position.set(0, 0, 3);
-            controls.update();
-            console.log("Caméra et contrôles initialisés.");
+            if (controls) { // Mettre à jour les contrôles seulement s'ils ont été initialisés
+                controls.update();
+            }
+            console.log("Caméra et contrôles initialisés (si disponibles).");
 
             // --- Création de la sphère principale ---
             const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
@@ -259,10 +255,14 @@
 
             // --- Boutons de contrôle ---
             document.getElementById('resetCamera').addEventListener('click', () => {
-                controls.reset();
-                camera.position.set(0, 0, 3);
-                controls.update();
-                console.log("Caméra réinitialisée.");
+                if (controls) { // Réinitialiser seulement si les contrôles sont disponibles
+                    controls.reset();
+                    camera.position.set(0, 0, 3);
+                    controls.update();
+                    console.log("Caméra réinitialisée.");
+                } else {
+                    console.warn("Impossible de réinitialiser la caméra: OrbitControls non chargé.");
+                }
             });
 
             document.getElementById('randomPoint').addEventListener('click', () => {
@@ -279,7 +279,9 @@
             // --- Boucle d'animation ---
             function animate() {
                 requestAnimationFrame(animate);
-                controls.update();
+                if (controls) { // Mettre à jour les contrôles seulement s'ils ont été initialisés
+                    controls.update();
+                }
                 renderer.render(scene, camera);
             }
 
